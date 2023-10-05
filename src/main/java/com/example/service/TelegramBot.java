@@ -1,12 +1,16 @@
 package com.example.service;
 
 import com.example.config.BotConfig;
+import com.example.model.User;
+import com.example.model.UserRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.objects.Message;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
@@ -15,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -23,9 +28,12 @@ import java.util.Map;
 @Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
+    @Autowired
+    private UserRepository userRepository;
     final BotConfig config;
     private final String ERROR_OCCURRED = "Error occurred: ";
     private final String MESSAGE_RECEIVED = "Received message from user: ";
+    private final String USER_SAVED = "User saved in db: ";
     public TelegramBot(BotConfig config) {
         this.config = config;
     }
@@ -37,6 +45,7 @@ public class TelegramBot extends TelegramLongPollingBot {
             log.info(MESSAGE_RECEIVED+update.getMessage().getChat().getUserName()+", message: " + message);
             long chatId = update.getMessage().getChatId();
             if (message.equalsIgnoreCase("/start")) {
+                registerUser(update.getMessage());
                 startCommandReceived(chatId, update.getMessage().getChat().getUserName());
             } else if (message.contains("weather")) {
                 String answer = "Что-то пошло не так";
@@ -55,6 +64,23 @@ public class TelegramBot extends TelegramLongPollingBot {
                 sendMessage(chatId, "Sorry ....");
             }
         }
+
+    }
+
+    private void registerUser(Message message) {
+    if (userRepository.findById(message.getChatId()).isEmpty()){
+        var chatId = message.getChatId();
+        var chat = message.getChat();
+        User user = new User();
+        user.setChatId(chatId);
+        user.setUserName(chat.getUserName());
+        user.setFirstName(chat.getFirstName());
+        user.setLastName(chat.getLastName());
+        user.setChatLocation(chat.getLocation());
+        user.setRegisteredAt(new Timestamp(System.currentTimeMillis()));
+        userRepository.save(user);
+        log.info(USER_SAVED+user.toString());
+    }
 
     }
 
