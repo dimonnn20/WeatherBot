@@ -3,6 +3,7 @@ package com.example.service;
 import com.example.config.BotConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
@@ -19,11 +20,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-
+@Slf4j
 @Component
 public class TelegramBot extends TelegramLongPollingBot {
     final BotConfig config;
-
+    private final String ERROR_OCCURRED = "Error occurred: ";
+    private final String MESSAGE_RECEIVED = "Received message from user: ";
     public TelegramBot(BotConfig config) {
         this.config = config;
     }
@@ -32,6 +34,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     public void onUpdateReceived(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String message = update.getMessage().getText();
+            log.info(MESSAGE_RECEIVED+update.getMessage().getChat().getUserName()+", message: " + message);
             long chatId = update.getMessage().getChatId();
             if (message.equalsIgnoreCase("/start")) {
                 startCommandReceived(chatId, update.getMessage().getChat().getUserName());
@@ -45,7 +48,7 @@ public class TelegramBot extends TelegramLongPollingBot {
                 try {
                     answer = prepareWeatherForecast(city);
                 } catch (Exception e) {
-
+                log.error(ERROR_OCCURRED+e.getMessage());
                 }
                 sendMessage(chatId, answer);
             } else {
@@ -95,7 +98,7 @@ public class TelegramBot extends TelegramLongPollingBot {
         String cityForForecast = new ObjectMapper().readTree(data).get("city").get("name").toString();
         JsonNode arrNode = new ObjectMapper().readTree(data).get("list");
         StringBuilder sb = new StringBuilder();
-        sb.append("***Погода на 5 дней для города "+cityForForecast+":***\n");
+        sb.append("***Погода на 5 дней для города " + cityForForecast + ":***\n");
 
         for (JsonNode node : arrNode) {
             String str = node.get("dt_txt").toString();
